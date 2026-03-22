@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuth() && getRole() == 'admin';
+    }
+
+    function isCoordinator() {
+      return isAuth() && (getRole() == 'coordinator' || getRole() == 'admin');
+    }
+
+    function isJury() {
+      return isAuth() && (getRole() == 'jury' || getRole() == 'admin');
+    }
+
+    function isStudent() {
+      return isAuth() && getRole() == 'student';
+    }
+
+    function isOwnDoc(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Users collection
+    match /users/{uid} {
+      allow read: if isAuth() && (isOwnDoc(uid) || isCoordinator() || isAdmin());
+      allow write: if isAdmin() || isOwnDoc(uid);
+      allow create: if isAdmin();
+    }
+
+    // Teams collection
+    match /teams/{teamId} {
+      allow read: if isAuth();
+      allow create: if isStudent() || isAdmin();
+      allow update: if isStudent() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Evaluations collection
+    match /evaluations/{evalId} {
+      allow read: if isAuth();
+      allow write: if isJury() || isAdmin();
+    }
+
+    // Attendance collection
+    match /attendance/{studentId} {
+      allow read: if isAuth() && (isOwnDoc(studentId) || isCoordinator() || isAdmin());
+      allow write: if isCoordinator() || isAdmin();
+    }
+
+    // Announcements collection
+    match /announcements/{announcementId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // Domains collection
+    match /domains/{domainId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // Settings collection
+    match /settings/{settingId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+  }
+}
