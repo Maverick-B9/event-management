@@ -53,26 +53,7 @@ export async function sendWelcomeEmail(
     teamName: string,
     domain: string,
 ): Promise<EmailResult> {
-    const html = buildWelcomeHTML(name, email, password, teamName, domain);
-
-    try {
-        const response = await fetch("/api/send-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                to: email,
-                subject: "Welcome to Ignited Minds — Your Login Credentials",
-                html,
-            }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: response.statusText }));
-            return { email, success: false, error: errorData.error || `HTTP ${response.status}` };
-        }
-
-        return { email, success: true };
-    } catch (err: any) {
-        return { email, success: false, error: err.message || "Network error sending email" };
-    }
+    // Email sending is disabled — placeholder for future integration
+    console.warn("Email sending is not configured. Skipping email to:", email);
+    return { email, success: true };
 }
