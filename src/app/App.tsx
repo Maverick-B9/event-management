@@ -18,7 +18,7 @@ function App() {
             <span className="font-semibold text-white/80">Ideathon</span> 2026
           </div>
           <div className="text-right">
-            <p className="text-[11px] md:text-xs text-white/60 font-medium">Developed by Balaram B</p>
+            <p className="text-[11px] md:text-xs text-white/60 font-medium">Developed by Balaram B & Yashas N</p>
             <p className="text-[9px] md:text-[10px] text-white/40">Department of Computer Science and Engineering</p>
           </div>
         </footer>

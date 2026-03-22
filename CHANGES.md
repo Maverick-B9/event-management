@@ -181,7 +181,6 @@
 
 ## 👨‍💻 Developed By
 
-- **Balaram B** — Lead Developer
-- **Yashas** — Developer
+- **Balaram B** — Department of Computer Science and Engineering
+- **Yashas** — Department of Computer Science and Engineering
 
-> Department of Computer Science and Engineering
