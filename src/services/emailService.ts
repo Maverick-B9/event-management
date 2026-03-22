@@ -1,7 +1,3 @@
-const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY as string;
-const SENDER_EMAIL = (import.meta.env.VITE_SENDER_EMAIL as string) || "yashas1519@gmail.com";
-const SENDER_NAME = (import.meta.env.VITE_SENDER_NAME as string) || "Ignited Minds";
-
 export interface EmailResult {
     email: string;
     success: boolean;
@@ -57,35 +53,7 @@ export async function sendWelcomeEmail(
     teamName: string,
     domain: string,
 ): Promise<EmailResult> {
-    if (!BREVO_API_KEY) {
-        console.warn("VITE_BREVO_API_KEY not set — skipping email to:", email);
-        return { email, success: false, error: "VITE_BREVO_API_KEY not configured" };
-    }
-
-    try {
-        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-            method: "POST",
-            headers: {
-                "api-key": BREVO_API_KEY,
-                "Content-Type": "application/json",
-                "accept": "application/json",
-            },
-            body: JSON.stringify({
-                sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-                to: [{ email, name }],
-                subject: "Welcome to Ignited Minds — Your Login Credentials",
-                htmlContent: buildWelcomeHTML(name, email, password, teamName, domain),
-            }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: response.statusText }));
-            const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-            return { email, success: false, error: errorMessage };
-        }
-
-        return { email, success: true };
-    } catch (err: any) {
-        return { email, success: false, error: err.message || "Network error sending email" };
-    }
+    // Email sending is disabled — placeholder for future integration
+    console.warn("Email sending is not configured. Skipping email to:", email);
+    return { email, success: true };
 }
