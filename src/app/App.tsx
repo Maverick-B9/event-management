@@ -17,9 +17,11 @@ function App() {
           <div className="text-white/60 text-xs md:text-sm">
             <span className="font-semibold text-white/80">Ideathon</span> 2026
           </div>
-          <div className="text-right">
-            <p className="text-[11px] md:text-xs text-white/60 font-medium">Developed by Balaram B and Contributed by Yashas N</p>
-            <p className="text-[9px] md:text-[10px] text-white/40">Department of Computer Science and Engineering</p>
+          <div className="text-right max-w-[65%] sm:max-w-[70%] md:max-w-none flex flex-col justify-end">
+            <p className="text-[9px] sm:text-[11px] md:text-xs text-white/60 font-medium leading-tight">
+              Developed by Balaram B <br className="sm:hidden" /> and contributed by Yashas N
+            </p>
+            <p className="text-[7px] sm:text-[9px] md:text-[10px] text-white/40 pt-0.5 md:pt-0">Department of Computer Science and Engineering</p>
           </div>
         </footer>
       </div>
