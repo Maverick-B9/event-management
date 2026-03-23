@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardList, Loader2, Search, Save, ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { ClipboardList, Loader2, Search, Save, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { subscribeEvaluations, updateEvaluation, type Evaluation } from "../../../services/evaluationService";
+import { subscribeEvaluations, updateEvaluation, deleteEvaluation, type Evaluation } from "../../../services/evaluationService";
 import { getStaffByRole, type StaffMember } from "../../../services/adminService";
 import { toast } from "sonner";
 
@@ -26,6 +26,7 @@ export default function AdminEvaluations() {
     const [editingEval, setEditingEval] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Evaluation>>({});
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState<string | null>(null);
 
     useEffect(() => {
         // Load jury member names
@@ -93,6 +94,19 @@ export default function AdminEvaluations() {
             toast.error("Failed to update: " + e.message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDelete = async (evalId: string, teamName: string, juryName: string) => {
+        if (!confirm(`Delete evaluation by ${juryName} for ${teamName}? This cannot be undone.`)) return;
+        setDeleting(evalId);
+        try {
+            await deleteEvaluation(evalId);
+            toast.success("Evaluation deleted!");
+        } catch (e: any) {
+            toast.error("Failed to delete: " + e.message);
+        } finally {
+            setDeleting(null);
         }
     };
 
@@ -198,10 +212,18 @@ export default function AdminEvaluations() {
                                                                 </Button>
                                                             </div>
                                                         ) : (
-                                                            <Button size="sm" variant="outline" onClick={() => startEdit(ev)}
-                                                                className="border-white/20 text-xs h-7 px-2">
-                                                                <Pencil className="w-3 h-3 mr-1" /> Edit
-                                                            </Button>
+                                                            <div className="flex gap-1.5">
+                                                                <Button size="sm" variant="outline" onClick={() => startEdit(ev)}
+                                                                    className="border-white/20 text-xs h-7 px-2">
+                                                                    <Pencil className="w-3 h-3 mr-1" /> Edit
+                                                                </Button>
+                                                                <Button size="sm" variant="outline"
+                                                                    onClick={() => handleDelete(ev.id!, group.teamName, juryMap[ev.juryId] || ev.juryId)}
+                                                                    disabled={deleting === ev.id}
+                                                                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs h-7 px-2">
+                                                                    {deleting === ev.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                                                </Button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                     <div className="grid grid-cols-5 gap-2">

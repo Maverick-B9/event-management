@@ -6,6 +6,7 @@ import {
     getDoc,
     getDocs,
     updateDoc,
+    deleteDoc,
     query,
     where,
     orderBy,
@@ -118,5 +119,9 @@ export function subscribeEvaluations(callback: (evaluations: Evaluation[]) => vo
         const evals = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Evaluation);
         callback(evals);
     });
+}
+
+export async function deleteEvaluation(evalId: string): Promise<void> {
+    await deleteDoc(doc(db, "evaluations", evalId));
 }
 
