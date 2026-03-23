@@ -21,6 +21,7 @@ export interface StaffMember {
     name: string;
     email: string;
     role: StaffRole;
+    assignedTeams?: string[];
     initialPassword?: string;
     createdAt?: any;
 }
@@ -117,6 +118,10 @@ export async function forceChangeUserPassword(email: string, oldPassword: string
     } finally {
         try { await tempAuth.signOut(); } catch { }
     }
+}
+
+export async function updateAssignedTeams(juryId: string, teamIds: string[]) {
+    await updateDoc(doc(db, "users", juryId), { assignedTeams: teamIds });
 }
 
 // Domain management
