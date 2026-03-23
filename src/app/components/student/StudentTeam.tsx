@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Users, Plus, UserPlus, Target, Loader2, CheckCircle, Copy, Trash2, Save } from "lucide-react";
+import { Users, Plus, UserPlus, Target, Loader2, CheckCircle, Copy, Trash2, Save, MapPin } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -158,12 +158,25 @@ export default function StudentTeam() {
                 <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">{team.domain}</Badge>
               </div>
             </div>
-            <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between mb-6">
+            <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between mb-3">
               <span className="text-gray-400 text-sm">Team ID: <span className="text-white font-mono">{team.id}</span></span>
               <button onClick={() => { navigator.clipboard.writeText(team.id!); toast.success("Team ID copied!"); }}>
                 <Copy className="w-4 h-4 text-gray-400 hover:text-white" />
               </button>
             </div>
+
+            {/* Room Assignment */}
+            {team.room && (
+              <div className="bg-cyan-900/20 border border-cyan-500/20 rounded-lg p-3 flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <div className="text-xs text-cyan-400 font-medium">Room / Location</div>
+                  <div className="text-white font-semibold">{team.room}</div>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-white/10 pt-4">
               <div className="flex items-center justify-between mb-4">

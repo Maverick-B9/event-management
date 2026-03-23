@@ -39,15 +39,15 @@ export default function JuryEvaluation() {
       try {
         let ts = await getAllTeams();
 
-        // Filter by assigned teams if the jury member has specific assignments
+        // Filter to show ONLY the teams assigned to this jury member
         if (userProfile?.uid) {
           const userDoc = await getDoc(doc(db, "users", userProfile.uid));
           const userData = userDoc.data();
           const assignedTeams: string[] = userData?.assignedTeams || [];
-          if (assignedTeams.length > 0) {
-            const assignedSet = new Set(assignedTeams);
-            ts = ts.filter((t) => t.id && assignedSet.has(t.id));
-          }
+          const assignedSet = new Set(assignedTeams);
+          ts = assignedTeams.length > 0
+            ? ts.filter((t) => t.id && assignedSet.has(t.id))
+            : []; // No teams assigned = show nothing
         }
 
         setTeams(ts);
@@ -170,7 +170,7 @@ export default function JuryEvaluation() {
                 <p className="text-gray-400 text-sm">No teams match "{search}"</p>
               </Card>
             )}
-            {teams.length === 0 && <Card className="bg-white/5 border-white/10 p-10 text-center"><p className="text-gray-400">No teams assigned to you yet.</p></Card>}
+            {teams.length === 0 && <Card className="bg-white/5 border-white/10 p-10 text-center"><p className="text-gray-400">No teams have been assigned to you yet. Please contact the admin.</p></Card>}
           </div>
         </>
       ) : (

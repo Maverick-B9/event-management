@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Users, Search, ChevronDown, ChevronUp, Loader2, Link2, Phone, Mail, User, RefreshCw } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronUp, Loader2, Link2, Phone, Mail, User, RefreshCw, MapPin, Save, Check } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { getAllTeams, type Team } from "../../../services/teamService";
+import { getAllTeams, updateTeamRoom, type Team } from "../../../services/teamService";
 import { getAllStudents, type Student } from "../../../services/studentService";
 import { toast } from "sonner";
 
@@ -15,6 +15,11 @@ export default function AdminTeams() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+
+    // Room editing state
+    const [editingRoom, setEditingRoom] = useState<string | null>(null);
+    const [roomValue, setRoomValue] = useState("");
+    const [savingRoom, setSavingRoom] = useState(false);
 
     const load = async () => {
         setLoading(true);
@@ -35,11 +40,32 @@ export default function AdminTeams() {
 
     const filtered = teams.filter((t) =>
         t.teamName.toLowerCase().includes(search.toLowerCase()) ||
-        t.domain.toLowerCase().includes(search.toLowerCase())
+        t.domain.toLowerCase().includes(search.toLowerCase()) ||
+        (t.room || "").toLowerCase().includes(search.toLowerCase())
     );
 
     const toggleExpand = (teamId: string) => {
         setExpandedTeam(expandedTeam === teamId ? null : teamId);
+        setEditingRoom(null);
+    };
+
+    const startEditRoom = (team: Team) => {
+        setEditingRoom(team.id!);
+        setRoomValue(team.room || "");
+    };
+
+    const handleSaveRoom = async (teamId: string) => {
+        setSavingRoom(true);
+        try {
+            await updateTeamRoom(teamId, roomValue.trim());
+            setTeams((prev) => prev.map((t) => t.id === teamId ? { ...t, room: roomValue.trim() } : t));
+            setEditingRoom(null);
+            toast.success("Room assigned!");
+        } catch (e: any) {
+            toast.error(e.message);
+        } finally {
+            setSavingRoom(false);
+        }
     };
 
     return (
@@ -60,16 +86,17 @@ export default function AdminTeams() {
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by team name or domain..."
+                    placeholder="Search by team name, domain, or room..."
                     className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                 />
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                     { label: "Total Teams", value: teams.length, color: "bg-indigo-600/20 border-indigo-500/30" },
                     { label: "With Submissions", value: teams.filter((t) => t.submissionLink).length, color: "bg-green-600/20 border-green-500/30" },
+                    { label: "Rooms Assigned", value: teams.filter((t) => t.room).length, color: "bg-cyan-600/20 border-cyan-500/30" },
                     { label: "Showing", value: filtered.length, color: "bg-orange-600/20 border-orange-500/30" },
                 ].map((s) => (
                     <Card key={s.label} className={`${s.color} p-4 backdrop-blur-md`}>
@@ -96,9 +123,14 @@ export default function AdminTeams() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-white font-medium truncate">{team.teamName}</div>
-                                        <div className="text-gray-400 text-sm flex items-center gap-2">
+                                        <div className="text-gray-400 text-sm flex flex-wrap items-center gap-2">
                                             <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-xs">{team.domain}</Badge>
                                             <span className="text-xs">{team.members.length + (team.memberDetails?.length || 0)} members</span>
+                                            {team.room && (
+                                                <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/40 text-xs">
+                                                    <MapPin className="w-3 h-3 mr-0.5" />{team.room}
+                                                </Badge>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
@@ -121,6 +153,40 @@ export default function AdminTeams() {
                                             {/* Team ID */}
                                             <div className="text-xs text-gray-500">
                                                 Team ID: <code className="bg-white/5 px-1 rounded text-gray-300">{team.id}</code>
+                                            </div>
+
+                                            {/* Room Assignment */}
+                                            <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-lg p-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <MapPin className="w-4 h-4 text-cyan-400" />
+                                                    <span className="text-sm text-cyan-300 font-medium">Room / Location</span>
+                                                </div>
+                                                {editingRoom === team.id ? (
+                                                    <form onSubmit={(e) => { e.preventDefault(); handleSaveRoom(team.id!); }} className="flex gap-2">
+                                                        <Input
+                                                            value={roomValue}
+                                                            onChange={(e) => setRoomValue(e.target.value)}
+                                                            placeholder="e.g. Room 101, Lab A3..."
+                                                            className="h-8 flex-1 bg-white/5 border-white/10 text-white text-sm placeholder:text-gray-500"
+                                                            autoFocus
+                                                        />
+                                                        <Button type="submit" size="sm" disabled={savingRoom} className="h-8 bg-cyan-600 hover:bg-cyan-700 px-3">
+                                                            {savingRoom ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                        </Button>
+                                                        <Button type="button" size="sm" variant="ghost" className="h-8 text-gray-400 px-2" onClick={() => setEditingRoom(null)}>✕</Button>
+                                                    </form>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => startEditRoom(team)}
+                                                        className="w-full text-left px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-sm"
+                                                    >
+                                                        {team.room ? (
+                                                            <span className="text-white">{team.room}</span>
+                                                        ) : (
+                                                            <span className="text-gray-500 italic">Click to assign room...</span>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {/* Submission */}

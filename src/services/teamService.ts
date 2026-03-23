@@ -24,6 +24,7 @@ export interface Team {
     members: string[]; // UIDs of authenticated members (usually just the leader)
     memberDetails?: TeamMemberDetail[]; // Manual entries for team members
     domain: string;
+    room?: string;
     teamSize?: number;
     leaderName?: string;
     submissionLink?: string;
@@ -72,6 +73,10 @@ export async function updateTeamSubmission(teamId: string, submissionLink: strin
 
 export async function updateTeamMembers(teamId: string, memberDetails: TeamMemberDetail[]) {
     await updateDoc(doc(db, "teams", teamId), { memberDetails });
+}
+
+export async function updateTeamRoom(teamId: string, room: string) {
+    await updateDoc(doc(db, "teams", teamId), { room });
 }
 
 export async function getTeamByMember(studentId: string): Promise<Team | null> {
