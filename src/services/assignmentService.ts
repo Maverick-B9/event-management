@@ -189,3 +189,75 @@ export async function assignJuryToDomain(
 
     return domainTeams.length;
 }
+
+/**
+ * Bulk-assign coordinators to ALL teams in a specific domain.
+ * Preserves existing jury assignments on each team.
+ * Also writes `assignedDomains` on each coordinator user doc for quick lookup.
+ */
+export async function assignCoordinatorsToDomain(
+    domain: string,
+    coordinatorIds: string[],
+    allTeams: { id: string; teamName: string; domain: string }[]
+): Promise<number> {
+    const domainTeams = allTeams.filter(
+        (t) => t.domain.toLowerCase() === domain.toLowerCase()
+    );
+
+    if (domainTeams.length === 0) return 0;
+
+    // Load existing assignments so we preserve jury selections
+    const existingAssignments = await getAssignments();
+    const assignmentMap = new Map<string, Assignment>();
+    for (const a of existingAssignments) {
+        assignmentMap.set(a.teamId, a);
+    }
+
+    // Upsert assignment for each team in the domain
+    const writes: Promise<void>[] = [];
+    for (const team of domainTeams) {
+        const existing = assignmentMap.get(team.id);
+        writes.push(
+            setDoc(doc(db, "assignments", team.id), {
+                teamId: team.id,
+                teamName: team.teamName,
+                assignedJuryIds: existing?.assignedJuryIds || [],
+                assignedCoordinatorIds: coordinatorIds,
+                updatedAt: serverTimestamp(),
+            }, { merge: true })
+        );
+    }
+    await Promise.all(writes);
+
+    // Sync the assignedTeams arrays on all jury/coordinator user docs
+    await syncAssignedTeamsToUsers();
+
+    // Write assignedDomains on each coordinator user doc
+    const updatedAssignments = await getAssignments();
+    const coordDomains = new Map<string, Set<string>>();
+
+    for (const a of updatedAssignments) {
+        const team = allTeams.find((t) => t.id === a.teamId);
+        if (!team) continue;
+        for (const cId of a.assignedCoordinatorIds) {
+            if (!coordDomains.has(cId)) coordDomains.set(cId, new Set());
+            coordDomains.get(cId)!.add(team.domain);
+        }
+    }
+
+    const domainUpdates: Promise<void>[] = [];
+    const coordSnap = await getDocs(
+        query(collection(db, "users"), where("role", "==", "coordinator"))
+    );
+    for (const d of coordSnap.docs) {
+        const domains = coordDomains.get(d.id);
+        domainUpdates.push(
+            updateDoc(doc(db, "users", d.id), {
+                assignedDomains: domains ? Array.from(domains) : [],
+            })
+        );
+    }
+    await Promise.all(domainUpdates);
+
+    return domainTeams.length;
+}

@@ -7,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { getAllTeams, type Team } from "../../../services/teamService";
 import { getStaffByRole, type StaffMember } from "../../../services/adminService";
-import { getAssignments, updateAssignment, assignJuryToDomain, type Assignment } from "../../../services/assignmentService";
+import { getAssignments, updateAssignment, assignJuryToDomain, assignCoordinatorsToDomain, type Assignment } from "../../../services/assignmentService";
 import { toast } from "sonner";
 
 interface TeamAssignmentState {
@@ -35,6 +35,11 @@ export default function AdminAssignments() {
     const [domainJuryModal, setDomainJuryModal] = useState<string | null>(null);
     const [domainJurySelection, setDomainJurySelection] = useState<string[]>([]);
     const [domainJurySaving, setDomainJurySaving] = useState(false);
+
+    // Domain-level coordinator assignment modal state
+    const [domainCoordModal, setDomainCoordModal] = useState<string | null>(null);
+    const [domainCoordSelection, setDomainCoordSelection] = useState<string[]>([]);
+    const [domainCoordSaving, setDomainCoordSaving] = useState(false);
 
     const load = async () => {
         setLoading(true);
@@ -193,11 +198,51 @@ export default function AdminAssignments() {
             const count = await assignJuryToDomain(domainJuryModal, domainJurySelection, allTeamData);
             toast.success(`Assigned ${domainJurySelection.length} jury member(s) to ${count} team(s) in ${domainJuryModal}`);
             setDomainJuryModal(null);
-            await load(); // Refresh all data
+            await load();
         } catch (e: any) {
             toast.error("Failed to save: " + e.message);
         } finally {
             setDomainJurySaving(false);
+        }
+    };
+
+    // --- Domain-level coordinator assignment ---
+    const openDomainCoordModal = (domain: string) => {
+        const domainTeamStates = teamStates.filter(
+            (ts) => ts.domain.toLowerCase() === domain.toLowerCase()
+        );
+        if (domainTeamStates.length === 0) {
+            setDomainCoordSelection([]);
+        } else {
+            const commonCoords = coordinators
+                .filter((c) => domainTeamStates.every((ts) => ts.selectedCoordinators.includes(c.id!)))
+                .map((c) => c.id!);
+            setDomainCoordSelection(commonCoords);
+        }
+        setDomainCoordModal(domain);
+    };
+
+    const toggleDomainCoord = (coordId: string) => {
+        setDomainCoordSelection((prev) =>
+            prev.includes(coordId)
+                ? prev.filter((id) => id !== coordId)
+                : [...prev, coordId]
+        );
+    };
+
+    const handleDomainCoordSave = async () => {
+        if (!domainCoordModal) return;
+        setDomainCoordSaving(true);
+        try {
+            const allTeamData = teams.map((t) => ({ id: t.id!, teamName: t.teamName, domain: t.domain }));
+            const count = await assignCoordinatorsToDomain(domainCoordModal, domainCoordSelection, allTeamData);
+            toast.success(`Assigned ${domainCoordSelection.length} coordinator(s) to ${count} team(s) in ${domainCoordModal}`);
+            setDomainCoordModal(null);
+            await load();
+        } catch (e: any) {
+            toast.error("Failed to save: " + e.message);
+        } finally {
+            setDomainCoordSaving(false);
         }
     };
 
@@ -279,16 +324,23 @@ export default function AdminAssignments() {
                                         </div>
                                     </button>
 
-                                    {/* Domain-level Assign Jury button */}
-                                    <div className="px-4 sm:px-5 pb-3 flex items-center gap-2 border-b border-white/5">
+                                    {/* Domain-level Assign buttons */}
+                                    <div className="px-4 sm:px-5 pb-3 flex flex-wrap items-center gap-2 border-b border-white/5">
                                         <Button
                                             size="sm"
                                             onClick={(e) => { e.stopPropagation(); openDomainJuryModal(group.domain); }}
                                             className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-xs"
                                         >
-                                            <Gavel className="w-3.5 h-3.5 mr-1.5" /> Assign Jury to Domain
+                                            <Gavel className="w-3.5 h-3.5 mr-1.5" /> Assign Jury
                                         </Button>
-                                        <span className="text-xs text-gray-500">Bulk assign jury to all {group.teams.length} teams</span>
+                                        <Button
+                                            size="sm"
+                                            onClick={(e) => { e.stopPropagation(); openDomainCoordModal(group.domain); }}
+                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-xs"
+                                        >
+                                            <UserCog className="w-3.5 h-3.5 mr-1.5" /> Assign Coordinators
+                                        </Button>
+                                        <span className="text-xs text-gray-500">Bulk assign to all {group.teams.length} teams</span>
                                     </div>
 
                                     {/* Expanded: teams in this domain */}
@@ -517,6 +569,94 @@ export default function AdminAssignments() {
                                     className="bg-gradient-to-r from-orange-600 to-red-600"
                                 >
                                     {domainJurySaving
+                                        ? <><Loader2 className="w-4 h-4 animate-spin mr-1.5" />Saving...</>
+                                        : <><Save className="w-4 h-4 mr-1.5" />Save Domain Assignment</>
+                                    }
+                                </Button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Domain Coordinator Assignment Modal */}
+            {domainCoordModal && (
+                <div
+                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+                    onClick={() => setDomainCoordModal(null)}
+                >
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="bg-gray-900 border border-white/15 rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-5 border-b border-white/10">
+                            <div>
+                                <h3 className="text-white font-semibold text-lg">Assign Coordinators to Domain</h3>
+                                <p className="text-gray-400 text-sm mt-0.5">
+                                    Select coordinators for <span className="text-purple-400 font-medium">{domainCoordModal}</span>
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setDomainCoordModal(null)}
+                                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+                            {coordinators.length === 0 ? (
+                                <p className="text-gray-500 text-sm text-center py-8">No coordinators created yet.</p>
+                            ) : (
+                                coordinators.map((c) => {
+                                    const selected = domainCoordSelection.includes(c.id!);
+                                    return (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => toggleDomainCoord(c.id!)}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                                                selected
+                                                    ? "border-purple-500/50 bg-purple-500/10 text-white"
+                                                    : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
+                                            }`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                                                selected ? "bg-purple-500 border-purple-500" : "border-white/30"
+                                            }`}>
+                                                {selected && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{c.name}</div>
+                                                <div className="text-xs text-gray-500 truncate">{c.email}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="p-5 border-t border-white/10 flex items-center justify-between gap-3">
+                            <div className="text-sm text-gray-400">
+                                {domainCoordSelection.length} coordinator(s) selected
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setDomainCoordModal(null)}
+                                    className="border-white/20 text-gray-300"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={handleDomainCoordSave}
+                                    disabled={domainCoordSaving}
+                                    className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                                >
+                                    {domainCoordSaving
                                         ? <><Loader2 className="w-4 h-4 animate-spin mr-1.5" />Saving...</>
                                         : <><Save className="w-4 h-4 mr-1.5" />Save Domain Assignment</>
                                     }

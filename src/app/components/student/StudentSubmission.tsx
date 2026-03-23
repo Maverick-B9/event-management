@@ -12,15 +12,17 @@ import { toast } from "sonner";
 export default function StudentSubmission() {
   const { userProfile } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
-  const [submissionUrl, setSubmissionUrl] = useState(userProfile?.submissionUrl || "");
+  const [submissionUrl, setSubmissionUrl] = useState("");
   const [linkInput, setLinkInput] = useState("");
   const [savingLink, setSavingLink] = useState(false);
 
   useEffect(() => {
     if (userProfile?.uid) {
-      getTeamByMember(userProfile.uid).then(setTeam).catch(() => { });
+      getTeamByMember(userProfile.uid).then((t) => {
+        setTeam(t);
+        if (t?.submissionLink) setSubmissionUrl(t.submissionLink);
+      }).catch(() => { });
     }
-    if (userProfile?.submissionUrl) setSubmissionUrl(userProfile.submissionUrl);
   }, [userProfile]);
 
   const handleSaveLink = async () => {
