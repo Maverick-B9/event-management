@@ -120,32 +120,32 @@ export default function LoginPage() {
 
           {/* Login form */}
           <Card className="backdrop-blur-xl bg-white/5 border-white/10 shadow-2xl p-6">
-            <div className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm text-gray-300">Email</label>
+                <label htmlFor="login-email" className="text-sm text-gray-300">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
+                    id="login-email"
                     type="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-gray-300">Password</label>
+                <label htmlFor="login-password" className="text-sm text-gray-300">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
+                    id="login-password"
                     type="password"
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                   />
                 </div>
@@ -163,7 +163,7 @@ export default function LoginPage() {
               )}
 
               <Button
-                onClick={handleLogin}
+                type="submit"
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-500/50"
               >
@@ -173,7 +173,7 @@ export default function LoginPage() {
                   `Login as ${roles.find((r) => r.id === activeRole)?.label}`
                 )}
               </Button>
-            </div>
+            </form>
 
             <div className="mt-4 text-center">
               <button
