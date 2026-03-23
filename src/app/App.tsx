@@ -19,7 +19,7 @@ function App() {
           </div>
           <div className="text-right max-w-[65%] sm:max-w-[70%] md:max-w-none flex flex-col justify-end">
             <p className="text-[9px] sm:text-[11px] md:text-xs text-white/60 font-medium leading-tight">
-              Developed by Balaram B <br className="sm:hidden" /> and contributed by Yashas N
+              Developed by Balaram B <br className="sm:hidden" />Contributed by Yashas N
             </p>
             <p className="text-[7px] sm:text-[9px] md:text-[10px] text-white/40 pt-0.5 md:pt-0">Department of Computer Science and Engineering</p>
           </div>
