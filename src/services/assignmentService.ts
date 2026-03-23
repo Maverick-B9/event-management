@@ -4,6 +4,8 @@ import {
     setDoc,
     getDoc,
     getDocs,
+    updateDoc,
+    deleteDoc,
     query,
     where,
     serverTimestamp,
@@ -29,6 +31,58 @@ export async function getAssignmentByTeam(teamId: string): Promise<Assignment | 
     return snap.exists() ? { id: snap.id, ...snap.data() } as Assignment : null;
 }
 
+/**
+ * After saving to the assignments collection, rebuild each affected
+ * jury/coordinator's `assignedTeams` on their user doc so the jury
+ * and coordinator portals pick up the change.
+ */
+async function syncAssignedTeamsToUsers(): Promise<void> {
+    const allAssignments = await getAssignments();
+
+    // Build mapping: staffId → Set<teamId>
+    const juryTeams = new Map<string, Set<string>>();
+    const coordTeams = new Map<string, Set<string>>();
+
+    for (const a of allAssignments) {
+        for (const jId of a.assignedJuryIds) {
+            if (!juryTeams.has(jId)) juryTeams.set(jId, new Set());
+            juryTeams.get(jId)!.add(a.teamId);
+        }
+        for (const cId of a.assignedCoordinatorIds) {
+            if (!coordTeams.has(cId)) coordTeams.set(cId, new Set());
+            coordTeams.get(cId)!.add(a.teamId);
+        }
+    }
+
+    // Fetch all jury + coordinator users so we can also clear stale entries
+    const [jurySnap, coordSnap] = await Promise.all([
+        getDocs(query(collection(db, "users"), where("role", "==", "jury"))),
+        getDocs(query(collection(db, "users"), where("role", "==", "coordinator"))),
+    ]);
+
+    const updates: Promise<void>[] = [];
+
+    for (const d of jurySnap.docs) {
+        const teamIds = juryTeams.get(d.id);
+        updates.push(
+            updateDoc(doc(db, "users", d.id), {
+                assignedTeams: teamIds ? Array.from(teamIds) : [],
+            })
+        );
+    }
+
+    for (const d of coordSnap.docs) {
+        const teamIds = coordTeams.get(d.id);
+        updates.push(
+            updateDoc(doc(db, "users", d.id), {
+                assignedTeams: teamIds ? Array.from(teamIds) : [],
+            })
+        );
+    }
+
+    await Promise.all(updates);
+}
+
 export async function updateAssignment(
     teamId: string,
     data: Pick<Assignment, "teamName" | "assignedJuryIds" | "assignedCoordinatorIds">
@@ -38,6 +92,18 @@ export async function updateAssignment(
         ...data,
         updatedAt: serverTimestamp(),
     }, { merge: true });
+
+    // Sync the assignedTeams arrays on all jury/coordinator user docs
+    await syncAssignedTeamsToUsers();
+}
+
+export async function deleteAssignment(teamId: string): Promise<void> {
+    try {
+        await deleteDoc(doc(db, "assignments", teamId));
+    } catch {
+        // Assignment may not exist — that's fine
+    }
+    await syncAssignedTeamsToUsers();
 }
 
 export async function getAssignmentsByStaff(staffId: string): Promise<Assignment[]> {

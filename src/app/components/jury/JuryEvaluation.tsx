@@ -9,6 +9,7 @@ import { Slider } from "../ui/slider";
 import { useAuth } from "../../../hooks/useAuth";
 import { getAllTeams, type Team } from "../../../services/teamService";
 import { evaluateTeam, getEvaluation, type Evaluation } from "../../../services/evaluationService";
+import { getAssignmentsByStaff } from "../../../services/assignmentService";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../firebase/firebase";
 import { toast } from "sonner";
@@ -40,12 +41,25 @@ export default function JuryEvaluation() {
         let ts = await getAllTeams();
 
         // Filter to show ONLY the teams assigned to this jury member
+        // Check BOTH user doc's assignedTeams AND the assignments collection
         if (userProfile?.uid) {
+          const assignedSet = new Set<string>();
+
+          // Source 1: user doc's assignedTeams field
           const userDoc = await getDoc(doc(db, "users", userProfile.uid));
           const userData = userDoc.data();
-          const assignedTeams: string[] = userData?.assignedTeams || [];
-          const assignedSet = new Set(assignedTeams);
-          ts = assignedTeams.length > 0
+          const userAssigned: string[] = userData?.assignedTeams || [];
+          for (const id of userAssigned) assignedSet.add(id);
+
+          // Source 2: assignments collection (fallback / additional source)
+          try {
+            const staffAssignments = await getAssignmentsByStaff(userProfile.uid);
+            for (const a of staffAssignments) assignedSet.add(a.teamId);
+          } catch {
+            // Non-blocking — assignments collection may not exist yet
+          }
+
+          ts = assignedSet.size > 0
             ? ts.filter((t) => t.id && assignedSet.has(t.id))
             : []; // No teams assigned = show nothing
         }

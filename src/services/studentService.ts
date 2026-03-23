@@ -15,6 +15,7 @@ import {
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth as getSecondaryAuth, signInWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { auth, db } from "../firebase/firebase";
+import { deleteTeam } from "./teamService";
 
 export interface Student {
     id?: string;
@@ -107,7 +108,8 @@ export async function deleteStudent(uid: string, email?: string, password?: stri
                     const members = teamSnap.data().members || [];
                     const updatedMembers = members.filter((m: string) => m !== uid);
                     if (updatedMembers.length === 0) {
-                        await deleteDoc(teamRef); // Team is empty, delete it
+                        // Team is empty — use cascade delete to clean up evaluations & assignments
+                        await deleteTeam(data.teamId);
                     } else {
                         await updateDoc(teamRef, { members: updatedMembers }); // Remove member
                     }
@@ -115,7 +117,7 @@ export async function deleteStudent(uid: string, email?: string, password?: stri
             }
         }
     } catch (e) {
-        console.error("Error cleaning up team logic:", e);
+        // Log but don't block deletion
     }
 
     // Cascade: Delete attendance and food coupons

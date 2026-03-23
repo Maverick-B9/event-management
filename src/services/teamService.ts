@@ -11,6 +11,7 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
+import { deleteAssignment } from "./assignmentService";
 
 export interface TeamMemberDetail {
     name: string;
@@ -85,4 +86,46 @@ export async function getTeamByMember(studentId: string): Promise<Team | null> {
     if (snap.empty) return null;
     const d = snap.docs[0];
     return { id: d.id, ...d.data() } as Team;
+}
+
+/**
+ * Delete a team and cascade-clean all related data:
+ * - All evaluation documents for this team
+ * - The assignment document for this team
+ * - The teamId reference on member user docs
+ */
+export async function deleteTeam(teamId: string): Promise<void> {
+    // 1. Delete all evaluations for this team
+    try {
+        const evalSnap = await getDocs(
+            query(collection(db, "evaluations"), where("teamId", "==", teamId))
+        );
+        const evalDeletes = evalSnap.docs.map((d) => deleteDoc(d.ref));
+        await Promise.all(evalDeletes);
+    } catch {
+        // Non-blocking — evaluations may not exist
+    }
+
+    // 2. Delete assignment entry & sync user docs
+    try {
+        await deleteAssignment(teamId);
+    } catch {
+        // Non-blocking
+    }
+
+    // 3. Clear teamId from student user docs that reference this team
+    try {
+        const userSnap = await getDocs(
+            query(collection(db, "users"), where("teamId", "==", teamId))
+        );
+        const userUpdates = userSnap.docs.map((d) =>
+            updateDoc(d.ref, { teamId: "" })
+        );
+        await Promise.all(userUpdates);
+    } catch {
+        // Non-blocking
+    }
+
+    // 4. Delete the team document itself
+    await deleteDoc(doc(db, "teams", teamId));
 }
