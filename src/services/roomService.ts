@@ -53,3 +53,28 @@ export function subscribeRooms(callback: (rooms: Room[]) => void): Unsubscribe {
         callback(rooms);
     });
 }
+
+/** Find rooms where a user is assigned — checks teamId, juryId, or coordinatorId */
+export function subscribeUserRooms(
+    userId: string,
+    teamId: string | undefined,
+    role: "student" | "jury" | "coordinator",
+    callback: (rooms: Room[]) => void
+): Unsubscribe {
+    return onSnapshot(collection(db, "rooms"), (snap) => {
+        const allRooms = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Room);
+        const matched = allRooms.filter((r) => {
+            if (role === "student" && teamId) {
+                return (r.assignedTeamIds || []).includes(teamId);
+            }
+            if (role === "jury") {
+                return (r.assignedJuryIds || []).includes(userId);
+            }
+            if (role === "coordinator") {
+                return (r.assignedCoordinatorIds || []).includes(userId);
+            }
+            return false;
+        });
+        callback(matched);
+    });
+}
