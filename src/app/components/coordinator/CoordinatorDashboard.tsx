@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Home, QrCode, Users, LogOut, Flame, Menu, X, Bell } from "lucide-react";
+import { Home, QrCode, Users, LogOut, Flame, Menu, X, Bell, Layers } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -13,6 +13,7 @@ import CoordinatorHome from "./CoordinatorHome";
 import CoordinatorScanner from "./CoordinatorScanner";
 import CoordinatorParticipants from "./CoordinatorParticipants";
 import CoordinatorAnnouncements from "./CoordinatorAnnouncements";
+import CoordinatorTeams from "./CoordinatorTeams";
 import GlobalLogo from "../GlobalLogo";
 import GlobalTitle from "../GlobalTitle";
 
@@ -40,6 +41,7 @@ export default function CoordinatorDashboard() {
 
   const menuItems = [
     { id: "home", label: "Dashboard", icon: Home },
+    { id: "teams", label: "Teams", icon: Layers },
     { id: "scanner", label: "QR Scanner", icon: QrCode },
     { id: "participants", label: "Participants", icon: Users },
     { id: "announcements", label: "Announcements", icon: Bell },
@@ -148,6 +150,7 @@ export default function CoordinatorDashboard() {
 
         <div className="p-4 sm:p-6 pb-20 lg:pb-6">
           {activeTab === "home" && <CoordinatorHome onNavigate={handleNav} />}
+          {activeTab === "teams" && <CoordinatorTeams />}
           {activeTab === "scanner" && <CoordinatorScanner />}
           {activeTab === "participants" && <CoordinatorParticipants />}
           {activeTab === "announcements" && <CoordinatorAnnouncements />}

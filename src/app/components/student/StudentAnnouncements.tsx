@@ -4,18 +4,32 @@ import { Bell, Loader2 } from "lucide-react";
 import { Card } from "../ui/card";
 import { subscribeAnnouncements, type Announcement } from "../../../services/announcementService";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "../../../hooks/useAuth";
+import { getTeamByMember } from "../../../services/teamService";
 
 export default function StudentAnnouncements() {
+    const { userProfile } = useAuth();
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsub = subscribeAnnouncements("student", (data) => {
-            setAnnouncements(data);
-            setLoading(false);
-        });
-        return unsub;
-    }, []);
+        let unsub: (() => void) | undefined;
+        async function init() {
+            let userDomains: string[] = [];
+            if (userProfile?.uid) {
+                try {
+                    const team = await getTeamByMember(userProfile.uid);
+                    if (team?.domain) userDomains = [team.domain];
+                } catch { /* ignore */ }
+            }
+            unsub = subscribeAnnouncements("student", (data) => {
+                setAnnouncements(data);
+                setLoading(false);
+            }, userDomains);
+        }
+        init();
+        return () => { if (unsub) unsub(); };
+    }, [userProfile]);
 
     return (
         <div className="space-y-4">

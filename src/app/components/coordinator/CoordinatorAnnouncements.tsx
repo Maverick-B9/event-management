@@ -5,18 +5,21 @@ import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { subscribeAnnouncements, type Announcement } from "../../../services/announcementService";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "../../../hooks/useAuth";
 
 export default function CoordinatorAnnouncements() {
+    const { userProfile } = useAuth();
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const userDomains: string[] = (userProfile as any)?.assignedDomains || [];
         const unsub = subscribeAnnouncements("coordinator", (data) => {
             setAnnouncements(data);
             setLoading(false);
-        });
+        }, userDomains);
         return unsub;
-    }, []);
+    }, [userProfile]);
 
     const audienceLabel = (aud: string) => {
         if (aud === "coordinator") return "Coordinators";

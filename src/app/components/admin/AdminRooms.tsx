@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { DoorOpen, Loader2, Plus, Trash2, Search, Save, Users, Gavel, UserCog, Check, X } from "lucide-react";
+import { DoorOpen, Loader2, Plus, Trash2, Search, Save, Users, Gavel, UserCog, Check, X, Layers } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { createRoom, deleteRoom, updateRoomAssignments, subscribeRooms, type Room } from "../../../services/roomService";
 import { getAllTeams, type Team } from "../../../services/teamService";
-import { getStaffByRole, type StaffMember } from "../../../services/adminService";
+import { getStaffByRole, type StaffMember, getDomains, type Domain } from "../../../services/adminService";
+import { getAssignments, type Assignment } from "../../../services/assignmentService";
+import { createAnnouncement } from "../../../services/announcementService";
 import { toast } from "sonner";
 
 export default function AdminRooms() {
@@ -30,16 +32,27 @@ export default function AdminRooms() {
     const [localAssignments, setLocalAssignments] = useState<Record<string, { teams: string[]; jury: string[]; coordinators: string[] }>>({});
     const [savingRoom, setSavingRoom] = useState<string | null>(null);
 
+    // Domain assignment modal state
+    const [allDomains, setAllDomains] = useState<Domain[]>([]);
+    const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
+    const [domainRoomModal, setDomainRoomModal] = useState<string | null>(null);
+    const [domainRoomSelection, setDomainRoomSelection] = useState<string[]>([]);
+    const [domainRoomSaving, setDomainRoomSaving] = useState(false);
+
     useEffect(() => {
-        // Load teams and staff
+        // Load teams, staff, domains, and assignments
         Promise.all([
             getAllTeams(),
             getStaffByRole("jury"),
             getStaffByRole("coordinator"),
-        ]).then(([t, j, c]) => {
+            getDomains(),
+            getAssignments(),
+        ]).then(([t, j, c, d, a]) => {
             setTeams(t);
             setJuryMembers(j);
             setCoordinators(c);
+            setAllDomains(d);
+            setAllAssignments(a);
         });
 
         // Real-time rooms
@@ -120,6 +133,86 @@ export default function AdminRooms() {
             toast.success("Room assignments saved!");
         } catch (e: any) { toast.error(e.message); }
         finally { setSavingRoom(null); }
+    };
+
+    // Domain room assignment helpers
+    const openDomainRoomModal = (roomId: string) => {
+        // Pre-populate: find which domains are fully represented in this room
+        const room = rooms.find((r) => r.id === roomId);
+        if (!room) return;
+        const currentTeamIds = new Set(room.assignedTeamIds || []);
+        const selected: string[] = [];
+        for (const d of allDomains) {
+            const domainTeamIds = teams.filter((t) => t.domain.toLowerCase() === d.name.toLowerCase()).map((t) => t.id!);
+            if (domainTeamIds.length > 0 && domainTeamIds.every((id) => currentTeamIds.has(id))) {
+                selected.push(d.name);
+            }
+        }
+        setDomainRoomSelection(selected);
+        setDomainRoomModal(roomId);
+    };
+
+    const toggleDomainRoom = (domain: string) => {
+        setDomainRoomSelection((prev) =>
+            prev.includes(domain) ? prev.filter((d) => d !== domain) : [...prev, domain]
+        );
+    };
+
+    const handleDomainRoomSave = async () => {
+        if (!domainRoomModal) return;
+        setDomainRoomSaving(true);
+        try {
+            const room = rooms.find((r) => r.id === domainRoomModal);
+            if (!room) return;
+
+            // Compute teams in selected domains
+            const domainTeamIds: string[] = [];
+            const domainJuryIds = new Set<string>();
+            const domainCoordIds = new Set<string>();
+
+            for (const domain of domainRoomSelection) {
+                const dTeams = teams.filter((t) => t.domain.toLowerCase() === domain.toLowerCase());
+                for (const t of dTeams) {
+                    if (t.id) domainTeamIds.push(t.id);
+                }
+                // Find jury/coordinators assigned to this domain via assignments
+                for (const a of allAssignments) {
+                    const team = teams.find((t) => t.id === a.teamId);
+                    if (team && team.domain.toLowerCase() === domain.toLowerCase()) {
+                        for (const jid of a.assignedJuryIds) domainJuryIds.add(jid);
+                        for (const cid of a.assignedCoordinatorIds) domainCoordIds.add(cid);
+                    }
+                }
+            }
+
+            await updateRoomAssignments(domainRoomModal, {
+                assignedTeamIds: [...new Set(domainTeamIds)],
+                assignedJuryIds: Array.from(domainJuryIds),
+                assignedCoordinatorIds: Array.from(domainCoordIds),
+            });
+
+            // Create personalized announcement per domain
+            for (const domain of domainRoomSelection) {
+                const floorInfo = room.floor ? ` (${room.floor})` : "";
+                await createAnnouncement(
+                    `🏠 Room Allotment: ${room.name}`,
+                    `Your domain "${domain}" has been assigned to ${room.name}${floorInfo}. Please report to this room for your sessions.`,
+                    "all",
+                    [domain]
+                );
+            }
+
+            toast.success(`Assigned ${domainRoomSelection.length} domain(s) to ${room.name} and sent announcements!`);
+            setDomainRoomModal(null);
+
+            // Refresh assignments
+            const freshAssignments = await getAssignments();
+            setAllAssignments(freshAssignments);
+        } catch (e: any) {
+            toast.error("Failed: " + e.message);
+        } finally {
+            setDomainRoomSaving(false);
+        }
     };
 
     const teamNameMap: Record<string, string> = {};
@@ -242,6 +335,18 @@ export default function AdminRooms() {
                                         </div>
                                     </button>
 
+                                    {/* Quick Assign Domain button */}
+                                    <div className="px-4 pb-2 flex items-center gap-2 border-b border-white/5">
+                                        <Button
+                                            size="sm"
+                                            onClick={() => openDomainRoomModal(room.id!)}
+                                            className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-xs"
+                                        >
+                                            <Layers className="w-3.5 h-3.5 mr-1.5" /> Assign Domain
+                                        </Button>
+                                        <span className="text-xs text-gray-500">Auto-assign teams + staff + send announcement</span>
+                                    </div>
+
                                     {/* Expanded: assign teams/jury/coordinators */}
                                     {expandedRoom === room.id && (
                                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} className="border-t border-white/10">
@@ -350,6 +455,87 @@ export default function AdminRooms() {
                             </motion.div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Domain Room Assignment Modal */}
+            {domainRoomModal && (
+                <div
+                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+                    onClick={() => setDomainRoomModal(null)}
+                >
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="bg-gray-900 border border-white/15 rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-5 border-b border-white/10">
+                            <div>
+                                <h3 className="text-white font-semibold text-lg">Assign Domains to Room</h3>
+                                <p className="text-gray-400 text-sm mt-0.5">
+                                    Select domains for <span className="text-teal-400 font-medium">{rooms.find((r) => r.id === domainRoomModal)?.name}</span>
+                                </p>
+                            </div>
+                            <button onClick={() => setDomainRoomModal(null)} className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+                            {allDomains.length === 0 ? (
+                                <p className="text-gray-500 text-sm text-center py-8">No domains created yet.</p>
+                            ) : (
+                                allDomains.map((d) => {
+                                    const selected = domainRoomSelection.includes(d.name);
+                                    const domainTeamCount = teams.filter((t) => t.domain.toLowerCase() === d.name.toLowerCase()).length;
+                                    return (
+                                        <button
+                                            key={d.id || d.name}
+                                            onClick={() => toggleDomainRoom(d.name)}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                                                selected
+                                                    ? "border-teal-500/50 bg-teal-500/10 text-white"
+                                                    : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
+                                            }`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                                                selected ? "bg-teal-500 border-teal-500" : "border-white/30"
+                                            }`}>
+                                                {selected && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{d.name}</div>
+                                                <div className="text-xs text-gray-500">{domainTeamCount} team(s)</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-white/10 text-xs text-gray-500">
+                            ⚡ This will assign all teams + jury + coordinators from selected domains and send room allotment announcements.
+                        </div>
+
+                        <div className="p-5 border-t border-white/10 flex items-center justify-between gap-3">
+                            <div className="text-sm text-gray-400">{domainRoomSelection.length} domain(s) selected</div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setDomainRoomModal(null)} className="border-white/20 text-gray-300">Cancel</Button>
+                                <Button
+                                    size="sm"
+                                    onClick={handleDomainRoomSave}
+                                    disabled={domainRoomSaving}
+                                    className="bg-gradient-to-r from-teal-600 to-emerald-600"
+                                >
+                                    {domainRoomSaving
+                                        ? <><Loader2 className="w-4 h-4 animate-spin mr-1.5" />Saving...</>
+                                        : <><Save className="w-4 h-4 mr-1.5" />Save & Announce</>
+                                    }
+                                </Button>
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
             )}
         </div>

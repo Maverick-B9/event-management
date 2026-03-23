@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardList, Check, Loader2, Star, Search, ArrowLeft, ChevronDown } from "lucide-react";
+import { ClipboardList, Check, Loader2, Star, Search, ArrowLeft, ChevronDown, ExternalLink } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -188,7 +188,20 @@ export default function JuryEvaluation() {
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="text-white font-semibold text-sm sm:text-base truncate">{team.teamName}</div>
-                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 mt-1 text-xs">{team.domain}</Badge>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-xs">{team.domain}</Badge>
+                        {team.submissionLink && (
+                          <a
+                            href={team.submissionLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Submission
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {evaluated.has(team.id!) && <Badge className="bg-green-500/20 text-green-400 border-green-500/40 text-xs hidden sm:flex"><Check className="w-3 h-3 mr-1" />Done</Badge>}
@@ -216,7 +229,19 @@ export default function JuryEvaluation() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg sm:text-xl text-white font-bold truncate">{selected.teamName}</h2>
-              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">{selected.domain}</Badge>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">{selected.domain}</Badge>
+                {selected.submissionLink && (
+                  <a
+                    href={selected.submissionLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> View Submission
+                  </a>
+                )}
+              </div>
             </div>
             <Button variant="outline" className="border-white/20 shrink-0" onClick={() => setSelected(null)}>
               <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Back</span>

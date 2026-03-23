@@ -19,20 +19,26 @@ export interface Announcement {
     title: string;
     description: string;
     audience: AnnouncementAudience;
+    targetDomains?: string[];
     timestamp?: any;
 }
 
 export async function createAnnouncement(
     title: string,
     description: string,
-    audience: AnnouncementAudience = "all"
+    audience: AnnouncementAudience = "all",
+    targetDomains?: string[]
 ) {
-    await addDoc(collection(db, "announcements"), {
+    const data: Record<string, any> = {
         title,
         description,
         audience,
         timestamp: serverTimestamp(),
-    });
+    };
+    if (targetDomains && targetDomains.length > 0) {
+        data.targetDomains = targetDomains;
+    }
+    await addDoc(collection(db, "announcements"), data);
 }
 
 export async function getAnnouncements(): Promise<Announcement[]> {
@@ -55,18 +61,31 @@ export async function deleteAnnouncement(id: string) {
  */
 export function subscribeAnnouncements(
     role: "student" | "coordinator" | "jury" | "admin",
-    callback: (announcements: Announcement[]) => void
+    callback: (announcements: Announcement[]) => void,
+    userDomains?: string[]
 ): Unsubscribe {
     const q = query(collection(db, "announcements"), orderBy("timestamp", "desc"));
     return onSnapshot(q, (snap) => {
         const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement);
         const filtered = all.filter((a) => {
             const aud = a.audience || "all";
-            if (role === "admin") return true;
-            if (role === "student") return aud === "all";
-            if (role === "coordinator") return aud === "all" || aud === "coordinator" || aud === "staff";
-            if (role === "jury") return aud === "all" || aud === "jury" || aud === "staff";
-            return aud === "all";
+            // Role filter
+            let passesRole = false;
+            if (role === "admin") passesRole = true;
+            else if (role === "student") passesRole = aud === "all";
+            else if (role === "coordinator") passesRole = aud === "all" || aud === "coordinator" || aud === "staff";
+            else if (role === "jury") passesRole = aud === "all" || aud === "jury" || aud === "staff";
+            else passesRole = aud === "all";
+
+            if (!passesRole) return false;
+
+            // Domain filter: if announcement targets specific domains, only show to matching users
+            if (a.targetDomains && a.targetDomains.length > 0 && role !== "admin") {
+                if (!userDomains || userDomains.length === 0) return false;
+                return a.targetDomains.some((d) => userDomains.includes(d));
+            }
+
+            return true;
         });
         callback(filtered);
     });
