@@ -88,7 +88,7 @@ export default function StudentHome() {
   const steps = [
     { label: "Registered", done: true, icon: CheckCircle },
     { label: "Team Formed", done: !!team, icon: Users },
-    { label: "Idea Submitted", done: !!userProfile?.submissionUrl, icon: Upload },
+    { label: "Idea Submitted", done: !!team?.submissionLink, icon: Upload },
     { label: "Entry Marked", done: attended, icon: CheckCircle },
     { label: "Food Redeemed", done: foodRedeemed, icon: UtensilsCrossed },
   ];
@@ -230,7 +230,7 @@ export default function StudentHome() {
               <div>
                 <div className="text-xl text-white font-bold mb-1">{team.teamName}</div>
                 <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 mb-3">{team.domain}</Badge>
-                <div className="text-sm text-gray-400">{team.members.length} member(s)</div>
+                <div className="text-sm text-gray-400">{team.memberDetails ? 1 + team.memberDetails.length : team.teamSize || team.members.length} member(s)</div>
                 {team.submissionLink && (
                   <a href={team.submissionLink} target="_blank" rel="noopener noreferrer" className="mt-2 text-sm text-blue-400 hover:underline block">View Submission ↗</a>
                 )}

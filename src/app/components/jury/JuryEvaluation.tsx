@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardList, Check, Loader2, Star, Search, ArrowLeft } from "lucide-react";
+import { ClipboardList, Check, Loader2, Star, Search, ArrowLeft, ChevronDown } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -34,6 +34,7 @@ export default function JuryEvaluation() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [domainFilter, setDomainFilter] = useState("all");
 
   useEffect(() => {
     async function load() {
@@ -106,11 +107,17 @@ export default function JuryEvaluation() {
     } catch (e: any) { toast.error(e.message); } finally { setSubmitting(false); }
   };
 
-  // Filter teams by search
-  const filtered = teams.filter((t) =>
-    t.teamName.toLowerCase().includes(search.toLowerCase()) ||
-    t.domain.toLowerCase().includes(search.toLowerCase())
-  );
+  // Extract unique domains from assigned teams
+  const uniqueDomains = Array.from(new Set(teams.map((t) => t.domain))).sort();
+
+  // Filter teams by domain and search
+  const filtered = teams.filter((t) => {
+    const matchesDomain = domainFilter === "all" || t.domain === domainFilter;
+    const matchesSearch =
+      t.teamName.toLowerCase().includes(search.toLowerCase()) ||
+      t.domain.toLowerCase().includes(search.toLowerCase());
+    return matchesDomain && matchesSearch;
+  });
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-orange-400 animate-spin" /></div>;
 
@@ -128,15 +135,32 @@ export default function JuryEvaluation() {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search teams by name or domain..."
-              className="pl-9 sm:pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 text-sm"
-            />
+          {/* Domain Filter + Search */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {uniqueDomains.length > 1 && (
+              <div className="relative sm:w-52 shrink-0">
+                <select
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 cursor-pointer"
+                >
+                  <option value="all" className="bg-gray-900">All Domains</option>
+                  {uniqueDomains.map((d) => (
+                    <option key={d} value={d} className="bg-gray-900">{d}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            )}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search teams by name or domain..."
+                className="pl-9 sm:pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 text-sm"
+              />
+            </div>
           </div>
 
           {/* Progress bar */}
