@@ -7,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { createRoom, deleteRoom, updateRoomAssignments, subscribeRooms, type Room } from "../../../services/roomService";
 import { getAllTeams, type Team } from "../../../services/teamService";
-import { getStaffByRole, type StaffMember, getDomains, type Domain } from "../../../services/adminService";
+import { getStaffByRole, type StaffMember } from "../../../services/adminService";
 import { getAssignments, type Assignment } from "../../../services/assignmentService";
 import { createAnnouncement } from "../../../services/announcementService";
 import { toast } from "sonner";
@@ -33,26 +33,27 @@ export default function AdminRooms() {
     const [savingRoom, setSavingRoom] = useState<string | null>(null);
 
     // Domain assignment modal state
-    const [allDomains, setAllDomains] = useState<Domain[]>([]);
+    const [allDomains, setAllDomains] = useState<{ name: string }[]>([]);
     const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
     const [domainRoomModal, setDomainRoomModal] = useState<string | null>(null);
     const [domainRoomSelection, setDomainRoomSelection] = useState<string[]>([]);
     const [domainRoomSaving, setDomainRoomSaving] = useState(false);
 
     useEffect(() => {
-        // Load teams, staff, domains, and assignments
+        // Load teams, staff, and assignments
         Promise.all([
             getAllTeams(),
             getStaffByRole("jury"),
             getStaffByRole("coordinator"),
-            getDomains(),
             getAssignments(),
-        ]).then(([t, j, c, d, a]) => {
+        ]).then(([t, j, c, a]) => {
             setTeams(t);
             setJuryMembers(j);
             setCoordinators(c);
-            setAllDomains(d);
             setAllAssignments(a);
+            // Derive domains from actual team data (not from separate domains collection)
+            const uniqueDomains = Array.from(new Set(t.map((team) => team.domain))).sort();
+            setAllDomains(uniqueDomains.map((name) => ({ name })));
         });
 
         // Real-time rooms
@@ -491,7 +492,7 @@ export default function AdminRooms() {
                                     const domainTeamCount = teams.filter((t) => t.domain.toLowerCase() === d.name.toLowerCase()).length;
                                     return (
                                         <button
-                                            key={d.id || d.name}
+                                            key={d.name}
                                             onClick={() => toggleDomainRoom(d.name)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                                                 selected
