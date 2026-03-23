@@ -25,6 +25,7 @@ export default function StudentTeam() {
   const [joinTeamId, setJoinTeamId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [savingMembers, setSavingMembers] = useState(false);
+  const [membersDirty, setMembersDirty] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -86,17 +87,35 @@ export default function StudentTeam() {
     const maxSize = team?.teamSize || 5;
     if (memberDetails.length >= (maxSize - 1)) { toast.error(`Max ${maxSize} members per team (including leader)`); return; }
     setMemberDetails([...memberDetails, { name: "", email: "", phone: "" }]);
+    setMembersDirty(true);
   };
 
   const handleUpdateMember = (index: number, field: keyof TeamMemberDetail, value: string) => {
     const updated = [...memberDetails];
     updated[index] = { ...updated[index], [field]: value };
     setMemberDetails(updated);
+    setMembersDirty(true);
   };
 
-  const handleRemoveMember = (index: number) => {
+  const handleRemoveMember = async (index: number) => {
     const updated = memberDetails.filter((_, i) => i !== index);
     setMemberDetails(updated);
+    setMembersDirty(true);
+
+    // Auto-save when removing a member (especially important when removing the last one)
+    if (team?.id) {
+      setSavingMembers(true);
+      try {
+        await updateTeamMembers(team.id, updated);
+        setTeam({ ...team, memberDetails: updated });
+        setMembersDirty(false);
+        toast.success("Member removed and roster saved!");
+      } catch (e: any) {
+        toast.error("Failed to save: " + e.message);
+      } finally {
+        setSavingMembers(false);
+      }
+    }
   };
 
   const handleSaveMembers = async () => {
@@ -110,6 +129,7 @@ export default function StudentTeam() {
     try {
       await updateTeamMembers(team.id, memberDetails);
       setTeam({ ...team, memberDetails });
+      setMembersDirty(false);
       toast.success("Team roster saved!");
     } catch (e: any) {
       toast.error(e.message);
@@ -195,15 +215,15 @@ export default function StudentTeam() {
                         />
                       </div>
                     </div>
-                    <button onClick={() => handleRemoveMember(i)} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110">
-                      <Trash2 className="w-3 h-3" />
+                    <button onClick={() => handleRemoveMember(i)} disabled={savingMembers} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white transition-all hover:scale-110 disabled:opacity-50">
+                      {savingMembers ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                     </button>
                   </div>
                 ))}
               </div>
 
               {/* Save Button */}
-              {memberDetails.length > 0 && (
+              {(memberDetails.length > 0 || membersDirty) && (
                 <div className="mt-4 flex justify-end">
                   <Button onClick={handleSaveMembers} disabled={savingMembers} className="bg-gradient-to-r from-purple-600 to-blue-600">
                     {savingMembers ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
